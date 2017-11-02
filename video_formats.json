@@ -1,0 +1,31 @@
+[
+    {
+        "name": "720p",
+        "resolution": "1280:720",
+        "video_bitrate": "5000k",
+        "video_codec": "libvpx",
+        "audio_bitrate": "256k",
+        "audio_codec": "libvorbis",
+        "file_ending": "webm"
+    },
+    {
+        "name": "480p",
+        "resolution": "854:480",
+        "framerate": 24,
+        "video_bitrate": "2500k",
+        "video_codec": "libvpx",
+        "audio_bitrate": "256k",
+        "audio_codec": "libvorbis",
+        "file_ending": "webm"
+    },
+    {
+        "name": "360p",
+        "resolution": "640:360",
+        "framerate": 24,
+        "video_bitrate": "1000k",
+        "video_codec": "libvpx",
+        "audio_bitrate": "256k",
+        "audio_codec": "libvorbis",
+        "file_ending": "webm"
+    }
+]
