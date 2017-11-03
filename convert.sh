@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Copyright 2017 K. Langenberg. All rights reserved.
+# Use of this source code is governed by a GPLv3-style
+# license that can be found in the LICENSE file.
+
 ########
 # Init Variables
 # Available Environment Variables:
@@ -85,8 +89,9 @@ VIDEO_FORMATS: Pass all video formats which should trigger the conversion, seper
 VIDEO_FFMPEG_PATH: Path to ffmpeg executable 
 VIDEO_FFPROBE_PATH: Path to ffprobe executable 
  
-Copyright 2017 K. Langenberg 
-Licensed under GNU GPLv3"
+Copyright 2017 K. Langenberg. All rights reserved.
+Use of this source code is governed by a GPLv3-style
+license that can be found in the LICENSE file."
 	  exit 0
       ;;
     \?)
