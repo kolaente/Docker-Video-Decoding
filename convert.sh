@@ -1,5 +1,17 @@
 #!/bin/bash
 
+# the function "round()" was taken from 
+# http://stempell.com/2009/08/rechnen-in-bash/
+
+# the round function:
+round()
+{
+	echo $(printf %.$2f $(echo "scale=$2;(((10^$2)*$1)+0.5)/(10^$2)" | bc))
+};
+
+calc() { awk "BEGIN{print $*}"; }
+
+
 ########
 # Init Variables
 # Available Environment Variables:
@@ -167,9 +179,14 @@ while true; do
 				codec_type=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq --raw-output '.streams [0] .codec_type')
 				if [ "$codec_type" = "video" ]; then
 					video_height=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq '.streams [0] .height')
+					video_width=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq '.streams [0] .width')
 				else
 					video_height=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq '.streams [1] .height')
+					video_width=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq '.streams [1] .width')
 				fi
+
+				# Calculate aspect ratio
+				video_aspect_ratio=$( echo $video_width / $video_height | bc -l )
 
 				# Check if the file is a video file
 				if [ "$codec_type" = "null"  ]; then
@@ -190,13 +207,14 @@ while true; do
 						}
 
 						# Check if the video is larger or as large as the format we want to convert it to
-						IFS=':' read -r -a video_resolutions <<< "$(_jq '.resolution')"
-
-						# TODO don't ignore aspect ratio, maybe even only input a height in conversion json file, calculate the with based on aspect ration obtained from ffprobe. Setting to however force the aspect ratio
-
-						if [ "${video_resolutions[1]}" -le "$video_height" ]
+						if [ "$(_jq '.height')" -le "$video_height" ]
 						then
-							echo "Converting to $(_jq '.name'), Resolution: $(_jq '.resolution'), Bitrate: $(_jq '.video_bitrate'), Framerate: $(_jq '.framerate')"
+
+							# Calculate the new width based on aspect ratio
+							new_width="$(echo $video_aspect_ratio*$(_jq '.height') | bc | awk '{printf("%d\n",$1 + 0.5)}' )"
+							resolution="$new_width:$(_jq '.height')"
+							
+							echo "Converting to $(_jq '.name'), Resolution: $resolution, Bitrate: $(_jq '.video_bitrate'), Framerate: $(_jq '.framerate')"
 
 							# Make Framerate optional, don't modify the framerate if it is not set
 							framerate=""
@@ -206,7 +224,7 @@ while true; do
 							fi
 
 							# Convert
-							$video_ffmpeg_path -i $file -b:v $(_jq '.video_bitrate') $framerate -c:v $(_jq '.video_codec') -vf scale=$(_jq '.resolution') -c:a $(_jq '.audio_codec') -b:a $(_jq '.audio_bitrate') $file.out/$(basename "$file" "$file_format")_$(_jq '.name').$(_jq '.file_ending') &
+							$video_ffmpeg_path -i $file -b:v $(_jq '.video_bitrate') $framerate -c:v $(_jq '.video_codec') -vf scale=$resolution -c:a $(_jq '.audio_codec') -b:a $(_jq '.audio_bitrate') $file.out/$(basename "$file" "$file_format")_$(_jq '.name').$(_jq '.file_ending') &
 						fi
 					done
 
