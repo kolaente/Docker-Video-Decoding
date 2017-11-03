@@ -162,61 +162,65 @@ while true; do
 				echo "================"
 				echo "Found file: $file"
 
-				# Create Lock file
-				touch $file.lock
-
-				# Check if the file is a video file
-				# TODO
-
-				# Create the output folder
-				mkdir $file.out
-
 				# Get the video width and height
 				# Hack to get the height even if the audio and video stream are in reverse order
 				codec_type=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq --raw-output '.streams [0] .codec_type')
-				if [ "$codec_type" = "video" ]
-				then
+				if [ "$codec_type" = "video" ]; then
 					video_height=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq '.streams [0] .height')
 				else
 					video_height=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq '.streams [1] .height')
 				fi
 
-				# Loop through all videoformats and convert them
-				for row in $(echo "${video_formats_file}" | jq -r '.[] | @base64'); do  
-					_jq() {
-						echo ${row} | base64 --decode | jq -r ${1}
-					}
+				# Check if the file is a video file
+				if [ "$codec_type" = "null"  ]; then
+					echo "$file is not a video file"
 
-					# Check if the video is larger or as large as the format we want to convert it to
-					IFS=':' read -r -a video_resolutions <<< "$(_jq '.resolution')"
+				else
 
-					# TODO don't ignore aspect ratio, maybe even only input a height in conversion json file, calculate the with based on aspect ration obtained from ffprobe
+					# Create Lock file
+					touch $file.lock
 
-					if [ "${video_resolutions[1]}" -le "$video_height" ]
-					then
-						echo "Converting to $(_jq '.name'), Resolution: $(_jq '.resolution'), Bitrate: $(_jq '.video_bitrate'), Framerate: $(_jq '.framerate')"
+					# Create the output folder
+					mkdir $file.out
 
-						# Make Framerate optional, don't modify the framerate if it is not set
-						framerate=""
-						if [ "$(_jq '.framerate')" != "null" ]
+					# Loop through all videoformats and convert them
+					for row in $(echo "${video_formats_file}" | jq -r '.[] | @base64'); do  
+						_jq() {
+							echo ${row} | base64 --decode | jq -r ${1}
+						}
+
+						# Check if the video is larger or as large as the format we want to convert it to
+						IFS=':' read -r -a video_resolutions <<< "$(_jq '.resolution')"
+
+						# TODO don't ignore aspect ratio, maybe even only input a height in conversion json file, calculate the with based on aspect ration obtained from ffprobe. Setting to however force the aspect ratio
+
+						if [ "${video_resolutions[1]}" -le "$video_height" ]
 						then
-							framerate=" -r $(_jq '.framerate')"
+							echo "Converting to $(_jq '.name'), Resolution: $(_jq '.resolution'), Bitrate: $(_jq '.video_bitrate'), Framerate: $(_jq '.framerate')"
+
+							# Make Framerate optional, don't modify the framerate if it is not set
+							framerate=""
+							if [ "$(_jq '.framerate')" != "null" ]
+							then
+								framerate=" -r $(_jq '.framerate')"
+							fi
+
+							# Convert
+							$video_ffmpeg_path -i $file -b:v $(_jq '.video_bitrate') $framerate -c:v $(_jq '.video_codec') -vf scale=$(_jq '.resolution') -c:a $(_jq '.audio_codec') -b:a $(_jq '.audio_bitrate') $file.out/$(basename "$file" "$file_format")_$(_jq '.name').$(_jq '.file_ending') &
 						fi
+					done
 
-						# Convert
-						$video_ffmpeg_path -i $file -b:v $(_jq '.video_bitrate') $framerate -c:v $(_jq '.video_codec') -vf scale=$(_jq '.resolution') -c:a $(_jq '.audio_codec') -b:a $(_jq '.audio_bitrate') $file.out/$(basename "$file" "$file_format")_$(_jq '.name').$(_jq '.file_ending') &
-					fi
-				done
+					# Wait until all formats are created
+					wait
 
-				# Wait until all formats are created
-				wait
+					# Cleanup: Remove the lockfile, move the original to the converted folder.
+					mv $file $file.out/$(basename "$file" "$file_format")_orig"$file_format"
+					rm $file.lock
+					touch $file.out/$(basename "$file" "$file_format").done
 
-				# Cleanup: Remove the lockfile, move the original to the converted folder.
-				mv $file $file.out/$(basename "$file" "$file_format")_orig"$file_format"
-				rm $file.lock
-				touch $file.out/$(basename "$file" "$file_format").done
+					echo "Finished Converting $file"
 
-				echo "Finished Converting $file"
+				fi
 
 				echo "================"
 			fi
