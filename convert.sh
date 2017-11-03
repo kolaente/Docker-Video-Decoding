@@ -29,7 +29,7 @@ fi
 # All video formats
 if [ -n $VIDEO_FORMATS ]
 then
-	video_formats=$VIDEO_FORMATS
+	video_formats_string=$VIDEO_FORMATS
 fi
 
 # ffmpeg executable
@@ -51,7 +51,7 @@ while getopts ":c:p:v:p:h" opt; do
       video_location=$OPTARG
       ;;
     v)
-      video_formats=$OPTARG
+      video_formats_string=$OPTARG
       ;;
     f)
       video_ffmpeg_path=$OPTARG
@@ -105,9 +105,9 @@ then
 fi
 
 # Video Formats
-if [ -z $video_formats ]
+if [ -z $video_formats_string ]
 then 
-	video_formats='.mp4'
+	video_formats_string='.mp4'
 fi
 
 # Default ffmpeg path
@@ -137,9 +137,10 @@ fi
 video_location=${video_location%/}
 
 # Make an array of all video formats we want to convert
+IFS=':' read -r -a video_formats <<< "$video_formats_string"
 
 # Loop through our convertfile
-videoformats=$(<$video_formats_location)
+video_formats_file=$(<$video_formats_location)
 
 # Remove Spaces in filename (because bash doesn't like them and would throw an error)
 rename 's/ /_/g' *
@@ -152,9 +153,10 @@ while true; do
 	# loop through all files
 	for file in $video_location/*; do
 		# Check if the current file is a video
-		if [ ${file: -4} == ".mp4" ]
+		file_format=${file: -4}
+		if [ "${video_formats_string/$file_format}" != "$video_formats_string" ]
 		then
-			
+
 			# If it is a videofile, if no "locker" already exists, create one and start converting
 			if [ ! -f $file.lock ]
 			then
@@ -170,7 +172,7 @@ while true; do
 				mkdir $file.out
 				
 				# Loop through all videoformats and convert them
-				for row in $(echo "${videoformats}" | jq -r '.[] | @base64'); do  
+				for row in $(echo "${video_formats_file}" | jq -r '.[] | @base64'); do  
 					_jq() {
 						echo ${row} | base64 --decode | jq -r ${1}
 					}
@@ -185,16 +187,16 @@ while true; do
 					fi
 
 					# Convert
-					$video_ffmpeg_path -i $file -b:v $(_jq '.video_bitrate') $framerate -c:v $(_jq '.video_codec') -vf scale=$(_jq '.resolution') -c:a $(_jq '.audio_codec') -b:a $(_jq '.audio_bitrate') $file.out/$(basename "$file" .mp4)_$(_jq '.name').$(_jq '.file_ending') &
+					$video_ffmpeg_path -i $file -b:v $(_jq '.video_bitrate') $framerate -c:v $(_jq '.video_codec') -vf scale=$(_jq '.resolution') -c:a $(_jq '.audio_codec') -b:a $(_jq '.audio_bitrate') $file.out/$(basename "$file" "$file_format")_$(_jq '.name').$(_jq '.file_ending') &
 				done
 
 				# Wait until all formats are created
 				wait
 
 				# Cleanup: Remove the lockfile, move the original to the converted folder.
-				mv $file $file.out/$(basename "$file" .mp4)_orig.mp4
+				mv $file $file.out/$(basename "$file" "$file_format")_orig"$file_format"
 				rm $file.lock
-				touch $file.out/$(basename "$file" .mp4).done
+				touch $file.out/$(basename "$file" "$file_format").done
 
 				echo "Finished Converting $file"
 
