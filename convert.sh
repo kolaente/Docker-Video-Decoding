@@ -139,14 +139,14 @@ video_location=${video_location%/}
 # Loop through our convertfile
 video_formats_file=$(<$video_formats_location)
 
-# Remove Spaces in filename (because bash doesn't like them and would throw an error)
-rename 's/ /_/g' *
-
 ########
 # Run every 5 seconds
 ########
 
 while true; do
+	# Remove Spaces in filename (because bash doesn't like them and would throw an error)
+	rename 's/ /_/g' *
+	
 	# loop through all files
 	for file in $video_location/*; do
 		# Check if the current file is a video
@@ -165,14 +165,22 @@ while true; do
 				# Create Lock file
 				touch $file.lock
 
+				# Check if the file is a video file
+				# TODO
+
 				# Create the output folder
 				mkdir $file.out
 
 				# Get the video width and height
-				video_width=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq '.streams [0] .width')
-				video_height=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq '.streams [0] .height')
-	
-				
+				# Hack to get the height even if the audio and video stream are in reverse order
+				codec_type=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq --raw-output '.streams [0] .codec_type')
+				if [ "$codec_type" = "video" ]
+				then
+					video_height=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq '.streams [0] .height')
+				else
+					video_height=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq '.streams [1] .height')
+				fi
+
 				# Loop through all videoformats and convert them
 				for row in $(echo "${video_formats_file}" | jq -r '.[] | @base64'); do  
 					_jq() {
@@ -181,8 +189,8 @@ while true; do
 
 					# Check if the video is larger or as large as the format we want to convert it to
 					IFS=':' read -r -a video_resolutions <<< "$(_jq '.resolution')"
-					echo ${video_resolutions[1]}
-					echo $video_height
+
+					# TODO don't ignore aspect ratio, maybe even only input a height in conversion json file, calculate the with based on aspect ration obtained from ffprobe
 
 					if [ "${video_resolutions[1]}" -le "$video_height" ]
 					then
