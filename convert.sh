@@ -8,6 +8,7 @@
 # VIDEO_LOCATION: Pass a location to a different folder which holds the videos
 # VIDEO_FORMATS: Pass all video formats which should trigger the conversion, seperated by ":". Example: .mp4:.wmv
 # VIDEO_FFMPEG_PATH: Path to ffmpeg executable
+# VIDEO_FFPROBE_PATH: Path to ffprobe executable
 ########
 
 ########
@@ -38,11 +39,17 @@ then
 	video_ffmpeg_path=$VIDEO_FFMPEG_PATH
 fi
 
+# ffprobe executable
+if [ -n $VIDEO_FFPROBE_PATH ]
+then
+	video_ffprobe_path=$VIDEO_FFPROBE_PATH
+fi
+
 ########
 # Passed Options, any passed option will overwrite a previously set environment variable
 ########
 
-while getopts ":c:p:v:f:h" opt; do
+while getopts ":c:p:v:f:i:h" opt; do
   case $opt in
     c)
       video_formats_location=$OPTARG
@@ -56,6 +63,9 @@ while getopts ":c:p:v:f:h" opt; do
     f)
       video_ffmpeg_path=$OPTARG
       ;;
+    i)
+      video_ffprobe_path=$OPTARG
+      ;;
     h)
       echo "AVAILABLE OPTIONS: 
  
@@ -63,6 +73,7 @@ while getopts ":c:p:v:f:h" opt; do
 -p: Video Location. Pass a location to a different folder which holds the videos. Defaults to currents folder. 
 -v: Video Formats. Pass all video formats which should trigger the conversion, seperated by ':'. Example: .mp4:.wmv 
 -f: Path to ffmpeg executable. Defaults to 'ffmpeg'
+-i: Path to ffprobe executable. Defaults to 'ffprobe'
 -h: Print this help message.
 
 ENVIRONMENT VARIABLES: 
@@ -72,6 +83,7 @@ VIDEO_FORMATS_LOCATION: Pass a location to a different json file holding video c
 VIDEO_LOCATION: Pass a location to a different folder which holds the videos 
 VIDEO_FORMATS: Pass all video formats which should trigger the conversion, seperated by ':. Example: .mp4:.wmv 
 VIDEO_FFMPEG_PATH: Path to ffmpeg executable 
+VIDEO_FFPROBE_PATH: Path to ffprobe executable 
  
 Copyright 2017 K. Langenberg 
 Licensed under GNU GPLv3"
@@ -114,6 +126,12 @@ fi
 if [ -z "$video_ffmpeg_path" ]
 then
 	video_ffmpeg_path=ffmpeg
+fi
+
+# Default ffprobe path
+if [ -z "$video_ffprobe_path" ]
+then
+	video_ffprobe_path=ffprobe
 fi
 
 ########
@@ -171,13 +189,13 @@ while true; do
 
 				# Get the video width and height
 				# Hack to get the height even if the audio and video stream are in reverse order
-				codec_type=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq --raw-output '.streams [0] .codec_type')
+				codec_type=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | jq --raw-output '.streams [0] .codec_type')
 				if [ "$codec_type" = "video" ]; then
-					video_height=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq '.streams [0] .height')
-					video_width=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq '.streams [0] .width')
+					video_height=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | jq '.streams [0] .height')
+					video_width=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | jq '.streams [0] .width')
 				else
-					video_height=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq '.streams [1] .height')
-					video_width=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq '.streams [1] .width')
+					video_height=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | jq '.streams [1] .height')
+					video_width=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | jq '.streams [1] .width')
 				fi
 
 				# Calculate aspect ratio
