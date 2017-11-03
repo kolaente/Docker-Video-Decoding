@@ -189,13 +189,13 @@ while true; do
 
 				# Get the video width and height
 				# Hack to get the height even if the audio and video stream are in reverse order
-				codec_type=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | ./jq --raw-output '.streams [0] .codec_type')
+				codec_type=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | jq --raw-output '.streams [0] .codec_type')
 				if [ "$codec_type" = "video" ]; then
-					video_height=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | ./jq '.streams [0] .height')
-					video_width=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | ./jq '.streams [0] .width')
+					video_height=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | jq '.streams [0] .height')
+					video_width=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | jq '.streams [0] .width')
 				else
-					video_height=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | ./jq '.streams [1] .height')
-					video_width=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | ./jq '.streams [1] .width')
+					video_height=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | jq '.streams [1] .height')
+					video_width=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | jq '.streams [1] .width')
 				fi
 
 				# Calculate aspect ratio
@@ -214,13 +214,15 @@ while true; do
 					mkdir $file.out
 
 					# Loop through all videoformats and convert them
-					for row in $(echo "${video_formats_file}" | ./jq -r '.[] | @base64'); do  
+					for row in $(echo "${video_formats_file}" | jq -r '.[] | @base64'); do  
 						_jq() {
-							echo ${row} | base64 --decode | ./jq -r ${1}
+							echo ${row} | base64 -d | jq -r ${1}
 						}
 
 						# Check if the video is larger or as large as the format we want to convert it to
-						if [ "$(_jq '.height')" -le "$video_height" ]
+						format_new_height=$(_jq '.height')
+
+						if [ "$format_new_height" -le "$video_height" ]
 						then
 
 							# Calculate the new width based on aspect ratio

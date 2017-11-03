@@ -1,7 +1,7 @@
 FROM docker
 
 # Add bash, needed for our conversion script
-RUN apk add --update bash util-linux && rm -rf /var/cache/apk/*
+RUN apk add --update bash util-linux jq bc && rm -rf /var/cache/apk/*
 
 # Create folders
 RUN mkdir /var/videos && \
@@ -19,5 +19,6 @@ chmod +x /var/videoconversion/jq
 VOLUME /var/videos
 VOLUME /var/videoconversion/config
 
-#ENTRYPOINT while true; do sleep 1d; done
-ENTRYPOINT ./var/videoconversion/convert.sh -c /var/videoconversion/config/video_formats.json -p /var/videos -f "docker run -v /var/videos:/var/videos jrottenberg/ffmpeg:alpine-3.3"
+ENV VIDEO_FOLDER=/var/videos
+
+CMD bash ./var/videoconversion/convert.sh -c /var/videoconversion/config/video_formats.json -p /var/videos -f "docker run -v $VIDEO_FOLDER:/var/videos jrottenberg/ffmpeg:3.4-alpine" -i "docker run -v $VIDEO_FOLDER:/var/videos sjourdan/ffprobe"
