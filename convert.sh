@@ -1,17 +1,5 @@
 #!/bin/bash
 
-# the function "round()" was taken from 
-# http://stempell.com/2009/08/rechnen-in-bash/
-
-# the round function:
-round()
-{
-	echo $(printf %.$2f $(echo "scale=$2;(((10^$2)*$1)+0.5)/(10^$2)" | bc))
-};
-
-calc() { awk "BEGIN{print $*}"; }
-
-
 ########
 # Init Variables
 # Available Environment Variables:
@@ -54,7 +42,7 @@ fi
 # Passed Options, any passed option will overwrite a previously set environment variable
 ########
 
-while getopts ":c:p:v:p:h" opt; do
+while getopts ":c:p:v:f:h" opt; do
   case $opt in
     c)
       video_formats_location=$OPTARG
@@ -123,7 +111,7 @@ then
 fi
 
 # Default ffmpeg path
-if [ -z $video_ffmpeg_path ]
+if [ -z "$video_ffmpeg_path" ]
 then
 	video_ffmpeg_path=ffmpeg
 fi
@@ -156,18 +144,25 @@ video_formats_file=$(<$video_formats_location)
 ########
 
 while true; do
+
 	# Remove Spaces in filename (because bash doesn't like them and would throw an error)
-	rename 's/ /_/g' *
-	
+	for f in $video_location/*; do
+		mv "$f" `echo $f | tr ' ' '_'` 2>/dev/null
+	done
+
 	# loop through all files
 	for file in $video_location/*; do
+
+		# Remove Spaces in filename (because bash doesn't like them and would throw an error)
+		#mv "$file" `echo $file | tr ' ' '_'` 2>/dev/null
+
 		# Check if the current file is a video
 		file_format=${file: -4}
 		if [ "${video_formats_string/$file_format}" != "$video_formats_string" ]
 		then
 
 			# If it is a videofile, if no "locker" already exists, create one and start converting
-			if [ ! -f $file.lock ]
+			if [[ ! -f $file.lock ]]
 			then
 
 				# Tell the User what we're doing
