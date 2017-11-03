@@ -136,9 +136,6 @@ fi
 # Remove end slash in video location
 video_location=${video_location%/}
 
-# Make an array of all video formats we want to convert
-IFS=':' read -r -a video_formats <<< "$video_formats_string"
-
 # Loop through our convertfile
 video_formats_file=$(<$video_formats_location)
 
@@ -170,24 +167,37 @@ while true; do
 
 				# Create the output folder
 				mkdir $file.out
+
+				# Get the video width and height
+				video_width=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq '.streams [0] .width')
+				video_height=$(ffprobe -v quiet -show_streams -print_format json "$file" | jq '.streams [0] .height')
+	
 				
 				# Loop through all videoformats and convert them
 				for row in $(echo "${video_formats_file}" | jq -r '.[] | @base64'); do  
 					_jq() {
 						echo ${row} | base64 --decode | jq -r ${1}
 					}
-					
-					echo "Converting to $(_jq '.name'), Resolution: $(_jq '.resolution'), Bitrate: $(_jq '.video_bitrate'), Framerate: $(_jq '.framerate')"
 
-					# Make Framerate optional, don't modify the framerate if it is not set
-					framerate=""
-					if [ "$(_jq '.framerate')" != "null" ]
+					# Check if the video is larger or as large as the format we want to convert it to
+					IFS=':' read -r -a video_resolutions <<< "$(_jq '.resolution')"
+					echo ${video_resolutions[1]}
+					echo $video_height
+
+					if [ "${video_resolutions[1]}" -le "$video_height" ]
 					then
-						framerate=" -r $(_jq '.framerate')"
-					fi
+						echo "Converting to $(_jq '.name'), Resolution: $(_jq '.resolution'), Bitrate: $(_jq '.video_bitrate'), Framerate: $(_jq '.framerate')"
 
-					# Convert
-					$video_ffmpeg_path -i $file -b:v $(_jq '.video_bitrate') $framerate -c:v $(_jq '.video_codec') -vf scale=$(_jq '.resolution') -c:a $(_jq '.audio_codec') -b:a $(_jq '.audio_bitrate') $file.out/$(basename "$file" "$file_format")_$(_jq '.name').$(_jq '.file_ending') &
+						# Make Framerate optional, don't modify the framerate if it is not set
+						framerate=""
+						if [ "$(_jq '.framerate')" != "null" ]
+						then
+							framerate=" -r $(_jq '.framerate')"
+						fi
+
+						# Convert
+						$video_ffmpeg_path -i $file -b:v $(_jq '.video_bitrate') $framerate -c:v $(_jq '.video_codec') -vf scale=$(_jq '.resolution') -c:a $(_jq '.audio_codec') -b:a $(_jq '.audio_bitrate') $file.out/$(basename "$file" "$file_format")_$(_jq '.name').$(_jq '.file_ending') &
+					fi
 				done
 
 				# Wait until all formats are created
