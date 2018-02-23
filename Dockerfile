@@ -9,11 +9,9 @@ mkdir -p /var/videoconversion/config
 
 # Add the actual script
 COPY convert.sh /var/videoconversion/
-COPY jq /var/videoconversion/
 COPY video_formats.json /var/videoconversion/config/
 
-RUN chmod +x /var/videoconversion/convert.sh && \
-chmod +x /var/videoconversion/jq
+RUN chmod +x /var/videoconversion/convert.sh
 
 # Volumes
 VOLUME /var/videos
