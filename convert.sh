@@ -197,14 +197,9 @@ while true; do
 				codec_type=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | jq --raw-output '.streams [0] .codec_type')
 				if [ "$codec_type" = "video" ]; then
 					video_height=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | jq '.streams [0] .height')
-					video_width=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | jq '.streams [0] .width')
 				else
 					video_height=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | jq '.streams [1] .height')
-					video_width=$($video_ffprobe_path -v quiet -show_streams -print_format json "$file" | jq '.streams [1] .width')
 				fi
-
-				# Calculate aspect ratio
-				video_aspect_ratio=$( echo $video_width / $video_height | bc -l )
 
 				# Check if the file is a video file
 				if [ "$codec_type" = "null"  ]; then
@@ -216,7 +211,7 @@ while true; do
 					touch $file.lock
 
 					# Create the output folder
-					mkdir $file.out
+					mkdir $file.out -p
 
 					# Loop through all videoformats and convert them
 					for row in $(echo "${video_formats_file}" | jq -r '.[] | @base64'); do  
@@ -230,9 +225,8 @@ while true; do
 						if [ "$format_new_height" -le "$video_height" ]
 						then
 
-							# Calculate the new width based on aspect ratio
-							new_width="$(echo $video_aspect_ratio*$(_jq '.height') | bc | awk '{printf("%d\n",$1 + 0.5)}' )"
-							resolution="$new_width:$(_jq '.height')"
+							# Set the new size and keep the aspect ratio
+							resolution="-2:$(_jq '.height')"
 							
 							echo "Converting to $(_jq '.name'), Resolution: $resolution, Bitrate: $(_jq '.video_bitrate'), Framerate: $(_jq '.framerate')"
 
